@@ -28,6 +28,10 @@ struct request_t {
     size_t data_len;
 };
 
+struct loop_t {
+    int epfd;
+};
+
 static bool
 file_exsit(const char *f)
 {
@@ -53,7 +57,7 @@ option_is_test(int argc, const char *arg1)
 static bool
 option_is_regular(int argc, const char *token, const char *cert, const char *msg)
 {
-    if (argc == 4 && file_exsit(cert)) {
+    if (argc == 4 && file_exsit(cert) && (msg!=NULL)) {
         return true;
     } else {
         return false;
@@ -73,19 +77,53 @@ make_uri(const char *url, uint16_t port, const char *prefix, const char *token ,
     return uri;
 }
 
+static void
+init_global_library()
+{
+    SSL_library_init();
+    SSL_load_error_strings();
+}
 
+static bool
+socket_connect(const struct uri_t *uri, struct connection_t *conn)
+{
+    return false;
+}
 
+static bool
+ssl_connect(const struct uri_t *uri, struct connection_t *conn)
+{
+    return false;
+}
+
+static struct request_t
+make_request(struct uri_t uri, const char *msg)
+{
+    struct request_t req;
+    req.uri = uri;
+    req.data_len = strlen(msg);
+    req.data = malloc(req.data_len);
+    memcpy(req.data, msg, req.data_len);
+    return req;
+}
+
+static bool
+sync_post(struct loop_t *loop, struct connection_t *conn, struct request_t req)
+{
+    return false;
+}
 
 void
 usage()
 {
-    printf("usage: apns2demo token cert \n");
+    printf("usage: apns2demo token cert message \n");
 }
 
 static void
 test()
 {
-    printf("nghttp2 version: %s\n",NGHTTP2_VERSION);
+    printf("nghttp2 version: %s\n", NGHTTP2_VERSION);
+    printf("tls/ssl version: %s\n", SSL_TXT_TLSV1_2);
 }
 
 int
@@ -93,6 +131,7 @@ main(int argc, const char *argv[])
 {
     struct connection_t conn;
     struct uri_t uri;
+    struct loop_t loop;
 
     if (option_is_test(argc,argv[1])) {
         test();
@@ -101,7 +140,13 @@ main(int argc, const char *argv[])
         uri = make_uri("https://api.push.apple.com", 2197, "/3/device/", argv[1], argv[2]);
     } else {
         usage();
+        exit(0);
     }
+
+    init_global_library();
+    socket_connect(&uri, &conn);
+    ssl_connect(&uri, &conn);
+    sync_post(&loop, &conn, make_request(uri,argv[3]));
 
     return 0;
 }

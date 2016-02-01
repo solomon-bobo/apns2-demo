@@ -4,7 +4,7 @@ LIB=../nghttp2/lib/.libs
 .PHONY: all clean
 
 all: apns2-demo.c
-	gcc -o apns2-demo -Wall apns2-demo.c -I$(INC) -L$(LIB)
+	gcc -o apns2-demo -Wall apns2-demo.c -I$(INC) -L$(LIB) -lssl
 
 clean:
 	rm apns2-demo
