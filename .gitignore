@@ -1,2 +1,4 @@
 apns2-demo
 *.pem
+.project
+.cproject

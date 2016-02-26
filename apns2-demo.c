@@ -74,7 +74,7 @@ string_eq(const char *s1, const char *s2)
 static bool
 option_is_test(int argc, const char *arg1)
 {
-    if (argc == 2 && string_eq(arg1, "test")) {
+    if (argc == 2 && string_eq(arg1, "-h")) {
         return true;
     } else {
         return false;
@@ -469,7 +469,15 @@ main(int argc, const char *argv[])
     struct uri_t uri;
     struct loop_t loop;
 
-    if (option_is_test(argc,argv[1])) {
+    printf("nghttp2 version: %s\n", NGHTTP2_VERSION);
+    printf("tls/ssl version: %s\n", SSL_TXT_TLSV1_2);
+
+    if (argc == 1) {
+        /* default: my test device info */
+        uri = make_uri("api.push.apple.com", 2197, "/3/device/",
+		       "73f98e1833fa744403fb4447e0f3a054d43f433b80e48c5bcaa62b501fd0f956",
+		       "1fa5281c6c1d4cf5bb0bbbe0_dis_certkey.pem");
+    } else if (option_is_test(argc,argv[1])) {
         test();
     } else if (option_is_regular(argc, argv[1], argv[2], argv[3])) {
         /* production */
