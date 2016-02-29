@@ -53,7 +53,7 @@ struct uri_t {
     const char *token;
     uint16_t port;
     const char *cert;
-    const char *path;
+    char *path;
 };
 
 struct request_t {
@@ -151,6 +151,7 @@ connect_to_url(const char *url, uint16_t port)
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     
+    printf("ns looking up ...\n");
     rv = getaddrinfo(url, port_str, &hints, &res);
     if (rv != 0) {
         freeaddrinfo(res);
@@ -163,6 +164,9 @@ connect_to_url(const char *url, uint16_t port)
         if(sockfd < 0) {
             continue;
         }
+        struct in_addr a = ((struct sockaddr_in*)res->ai_addr)->sin_addr;
+        const char *p = inet_ntoa(a);
+        printf("connecting to : %s\n",p);
         while ((rv = connect(sockfd, res->ai_addr, res->ai_addrlen)) == -1 &&
                 errno == EINTR)
             ;
@@ -411,24 +415,15 @@ static int on_frame_send_callback(nghttp2_session *session,
 static int on_frame_recv_callback(nghttp2_session *session,
                                   const nghttp2_frame *frame,
                                   void *user_data _U_) {
-  size_t i;
   switch (frame->hd.type) {
   case NGHTTP2_HEADERS:
     if (frame->headers.cat == NGHTTP2_HCAT_RESPONSE) {
-      const nghttp2_nv *nva = frame->headers.nva;
       struct connection_t *conn = nghttp2_session_get_stream_user_data(session, frame->hd.stream_id);
       if (conn) {
-
-        printf("[INFO] C <---------------------------- S (HEADERS)\n");
-        printf("streamid %d,frame->headers.nvlen %d\n",frame->hd.stream_id,frame->headers.nvlen);
-
-        for (i = 0; i < frame->headers.nvlen; ++i) {
-          fwrite(nva[i].name, nva[i].namelen, 1, stdout);
-          printf(": ");
-          fwrite(nva[i].value, nva[i].valuelen, 1, stdout);
-          printf("\n");
-        }
+        printf("[INFO] C <---------------------------- S (HEADERS end)\n");
       }
+    } else {
+	printf("other header: %d",frame->headers.cat);
     }
     break;
   case NGHTTP2_RST_STREAM:
@@ -438,6 +433,29 @@ static int on_frame_recv_callback(nghttp2_session *session,
     printf("[INFO] C <---------------------------- S (GOAWAY)\n");
     break;
   }
+  return 0;
+}
+
+static int on_header_callback(nghttp2_session *session,
+                              const nghttp2_frame *frame,
+                              const uint8_t *name, size_t namelen,
+                              const uint8_t *value, size_t valuelen,
+                              uint8_t flags, void *user_data) {
+
+  if (frame->hd.type == NGHTTP2_HEADERS) {
+        fwrite(name, namelen, 1, stdout);
+        printf(": ");
+        fwrite(value, valuelen, 1, stdout);
+        printf("\n");
+
+  }
+  return 0;
+}
+
+static int on_begin_headers_callback(nghttp2_session *session,
+                                                 const nghttp2_frame *frame,
+                                                 void *user_data) {
+  printf("[INFO] C <---------------------------- S (HEADERS begin)\n");
   return 0;
 }
 
@@ -471,7 +489,10 @@ static int on_data_chunk_recv_callback(nghttp2_session *session,
                                        const uint8_t *data, size_t len,
                                        void *user_data _U_) {
   printf("%s\n",__FUNCTION__);
-  printf("%s\n",data);
+  char buf[1024] = {0};
+  memcpy(buf,data,len);
+  buf[len]=0;
+  printf("%s\n",buf);
   return 0;
 }
 
@@ -488,6 +509,8 @@ setup_nghttp2_callbacks(nghttp2_session_callbacks *callbacks)
   nghttp2_session_callbacks_set_recv_callback(callbacks, recv_callback);
   nghttp2_session_callbacks_set_on_frame_send_callback(callbacks, on_frame_send_callback);
   nghttp2_session_callbacks_set_on_frame_recv_callback(callbacks, on_frame_recv_callback);
+  nghttp2_session_callbacks_set_on_header_callback(callbacks,on_header_callback);
+  nghttp2_session_callbacks_set_on_begin_headers_callback(callbacks,on_begin_headers_callback);
   nghttp2_session_callbacks_set_on_stream_close_callback(callbacks, on_stream_close_callback);
   nghttp2_session_callbacks_set_on_data_chunk_recv_callback(callbacks, on_data_chunk_recv_callback);
 
@@ -558,11 +581,15 @@ set_tcp_nodelay(int fd)
 ssize_t data_prd_read_callback(
     nghttp2_session *session, int32_t stream_id, uint8_t *buf, size_t length,
     uint32_t *data_flags, nghttp2_data_source *source, void *user_data) {
-  printf("%s\n",__FUNCTION__);
   struct request_t *req = source->ptr;
   memcpy(buf,req->data,req->data_len);
   *data_flags |= NGHTTP2_DATA_FLAG_EOF;
 
+  printf("[INFO] C ----------------------------> S (DATA post body)\n");
+  char payload[1024];
+  memcpy(payload,req->data,req->data_len);
+  payload[req->data_len]=0;
+  printf("%s\n",payload);
   return req->data_len;
 }
 
@@ -571,12 +598,13 @@ submit_request(struct connection_t *conn, const struct request_t* req)
 {
     int32_t stream_id;
     const nghttp2_nv nva[] = {
-	      MAKE_NV(":method", "POST"),MAKE_NV_CS(":path", req->uri.path)
-	      /*MAKE_NV(":apns-id", "123e4567-e89b-12d3-a456-42665544000")*/
+	      MAKE_NV(":method", "POST"),
+	      MAKE_NV_CS(":path", req->uri.path),
+	      MAKE_NV("apns-id", "e77a3d12-bc9f-f410-a127-43f212597a9c")
     };
 
     nghttp2_data_provider data_prd;
-    data_prd.source.ptr = req;
+    data_prd.source.ptr = (void*)req;
     data_prd.read_callback = data_prd_read_callback;
 
     stream_id = nghttp2_submit_request(conn->session, NULL, nva,
