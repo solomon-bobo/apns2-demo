@@ -1,10 +1,5 @@
 # apns2-demo
 
-* what:
-
-    demo for APNs HTTP/2 :POST api (with nghttp2)
-
-
 
 * using APNs http2 new provider api:
 
