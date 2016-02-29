@@ -2,7 +2,7 @@
 
 * what:
 
-    demo for APNs HTTP/2 :POST api (with pure-ansiC & nghttp2 & epoll) 
+    demo for APNs HTTP/2 :POST api (with nghttp2)
 
 
 
