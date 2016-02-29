@@ -638,7 +638,7 @@ event_loop(struct loop_t *loop, struct connection_t *conn)
 		  ev.events = EPOLLIN;
 		  epoll_ctl(epfd,EPOLL_CTL_MOD,events[i].data.fd,&ev);
 	    } else {
-		if ((events[i].events & POLLHUP) || (events[i].events & POLLERR)) {
+		if ((events[i].events & EPOLLHUP) || (events[i].events & EPOLLERR)) {
 		    epoll_ctl(epfd,EPOLL_CTL_DEL,events[i].data.fd,NULL);
 		} else {
 		    printf("%s\n","epoll other");
@@ -682,12 +682,16 @@ blocking_post(struct loop_t *loop, struct connection_t *conn, const struct reque
 static void
 connection_cleanup(struct connection_t *conn)
 {
+  if (conn->session &&
+      conn->ssl &&
+      conn->ssl_ctx) {
     nghttp2_session_del(conn->session);
     SSL_shutdown(conn->ssl);
     SSL_free(conn->ssl);
     SSL_CTX_free(conn->ssl_ctx);
     shutdown(conn->fd, SHUT_WR);
     close(conn->fd); 
+  }
 }
 
 void
@@ -731,7 +735,8 @@ main(int argc, const char *argv[])
     init_global_library();
     
     socket_connect(&uri, &conn);
-    ssl_connect(&uri, &conn);
+    if(!ssl_connect(&uri, &conn))
+      die("ssl connect fail.");
     set_nghttp2_session_info(&conn);
 
     struct request_t req = make_request(uri,msg);
