@@ -94,16 +94,6 @@ file_exsit(const char *f)
 }
 
 static bool
-option_is_test(int argc, const char *arg1)
-{
-    if (argc == 2 && 0 == strcmp(arg1, "test")) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
-static bool
 option_is_regular(int argc, const char *token, const char *cert, const char *msg)
 {
     if (argc == 4 && file_exsit(cert) && (msg!=NULL)) {
@@ -332,7 +322,6 @@ ssl_connect(const struct uri_t *uri, struct connection_t *conn)
  */
 static ssize_t send_callback(nghttp2_session *session _U_, const uint8_t *data,
                              size_t length, int flags _U_, void *user_data) {
-  printf("%s\n",__FUNCTION__);
 
   int rv;
   struct connection_t *conn = user_data;
@@ -360,7 +349,6 @@ static ssize_t send_callback(nghttp2_session *session _U_, const uint8_t *data,
  */
 static ssize_t recv_callback(nghttp2_session *session _U_, uint8_t *buf,
                              size_t length, int flags _U_, void *user_data) {
-  printf("%s\n",__FUNCTION__);
 
   struct connection_t *conn;
   int rv;
@@ -386,10 +374,7 @@ static ssize_t recv_callback(nghttp2_session *session _U_, uint8_t *buf,
 static int on_frame_send_callback(nghttp2_session *session,
                                   const nghttp2_frame *frame,
                                   void *user_data _U_) {
-  printf("%s\n",__FUNCTION__);
   size_t i;
-  printf("%d\n",frame->hd.type);
-  //exit(0);
   switch (frame->hd.type) {
   case NGHTTP2_HEADERS:
     if (nghttp2_session_get_stream_user_data(session, frame->hd.stream_id)) {
@@ -416,17 +401,17 @@ static int on_frame_send_callback(nghttp2_session *session,
 static int on_frame_recv_callback(nghttp2_session *session,
                                   const nghttp2_frame *frame,
                                   void *user_data _U_) {
-  printf("%s\n",__FUNCTION__);
   size_t i;
-  printf("%d\n",frame->hd.type);
-  //exit(0);
   switch (frame->hd.type) {
   case NGHTTP2_HEADERS:
     if (frame->headers.cat == NGHTTP2_HCAT_RESPONSE) {
       const nghttp2_nv *nva = frame->headers.nva;
       struct connection_t *conn = nghttp2_session_get_stream_user_data(session, frame->hd.stream_id);
       if (conn) {
+
         printf("[INFO] C <---------------------------- S (HEADERS)\n");
+        printf("streamid %d,frame->headers.nvlen %d\n",frame->hd.stream_id,frame->headers.nvlen);
+
         for (i = 0; i < frame->headers.nvlen; ++i) {
           fwrite(nva[i].name, nva[i].namelen, 1, stdout);
           printf(": ");
@@ -455,7 +440,15 @@ static int on_frame_recv_callback(nghttp2_session *session,
 static int on_stream_close_callback(nghttp2_session *session, int32_t stream_id,
                                     uint32_t error_code _U_,
                                     void *user_data _U_) {
-  printf("%s\n",__FUNCTION__);
+  struct connection_t *conn = nghttp2_session_get_stream_user_data(session, stream_id);
+  if (conn) {
+    int rv;
+    rv = nghttp2_session_terminate_session(session, NGHTTP2_NO_ERROR);
+
+    if (rv != 0) {
+      diec("nghttp2_session_terminate_session", rv);
+    }
+  }
   return 0;
 }
 
@@ -568,7 +561,9 @@ submit_request(struct connection_t *conn, const struct request_t* req)
 {
     int32_t stream_id;
     const nghttp2_nv nva[] = {
-	      MAKE_NV(":method", "POST"),MAKE_NV_CS(":path", req->uri.path)};
+	      MAKE_NV(":method", "POST"),MAKE_NV_CS(":path", req->uri.path)
+	      /*MAKE_NV(":apns-id", "123e4567-e89b-12d3-a456-42665544000")*/
+    };
 
     nghttp2_data_provider data_prd;
     data_prd.source.ptr = req;
@@ -657,13 +652,7 @@ connection_cleanup(struct connection_t *conn)
 void
 usage()
 {
-    printf("usage: apns2demo token cert message \n");
-}
-
-static void
-test()
-{
-
+    printf("usage: ./apns2demo token cert message \n");
 }
 
 int
@@ -674,18 +663,12 @@ main(int argc, const char *argv[])
     struct loop_t loop;
     const char *msg;
 
-    printf("nghttp2 version: %s\n", NGHTTP2_VERSION);
-    printf("tls/ssl version: %s\n", SSL_TXT_TLSV1_2);
-
     if (argc == 1) {
         /* default: my test device info */
         uri = make_uri("api.push.apple.com", 2197, "/3/device/",
 		       "73f98e1833fa744403fb4447e0f3a054d43f433b80e48c5bcaa62b501fd0f956",
 		       "1fa5281c6c1d4cf5bb0bbbe0_dis_certkey.pem");
-        msg="{\"aps\":{\"alert\":\"Hello.\",\"sound\":\"default\"}}";
-    } else if (option_is_test(argc,argv[1])) {
-        test();
-        exit(0);
+        msg="{\"aps\":{\"alert\":\"nghttp2 test.\",\"sound\":\"default\"}}";
     } else if (option_is_regular(argc, argv[1], argv[2], argv[3])) {
         /* production */
         uri = make_uri("api.push.apple.com", 2197, "/3/device/", argv[1], argv[2]);
@@ -694,6 +677,10 @@ main(int argc, const char *argv[])
         usage();
         exit(0);
     }
+
+
+    printf("nghttp2 version: %s\n", NGHTTP2_VERSION);
+    printf("tls/ssl version: %s\n", SSL_TXT_TLSV1_2);
 
     init_global_library();
     
