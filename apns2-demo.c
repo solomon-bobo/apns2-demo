@@ -80,13 +80,6 @@ diec(const char *msg,int i)
     exit(EXIT_FAILURE);
 }
 
-static void
-dief(const char *msg,const char *s)
-{
-    fprintf(stderr, "FATAL: %s %s\n", msg,s);
-    exit(EXIT_FAILURE);
-}
-
 static bool
 file_exsit(const char *f)
 {
@@ -613,27 +606,46 @@ submit_request(struct connection_t *conn, const struct request_t* req)
 }
 
 
-static void ctl_poll(struct pollfd *pollfd, struct connection_t *conn) {
-  pollfd->events = 0;
-  if (nghttp2_session_want_read(conn->session) ||
-      conn->want_io == WANT_READ) {
-    pollfd->events |= POLLIN;
-  }
-  if (nghttp2_session_want_write(conn->session) ||
-      conn->want_io == WANT_WRITE) {
-    pollfd->events |= POLLOUT;
-  }
-}
+static void
+event_loop(struct loop_t *loop, struct connection_t *conn)
+{
+  struct epoll_event ev,events[20];
+  int epfd = loop->epfd;
 
-static void exec_io(struct connection_t *conn) {
-  int rv;
-  rv = nghttp2_session_recv(conn->session);
-  if (rv != 0) {
-    diec("nghttp2_session_recv", rv);
-  }
-  rv = nghttp2_session_send(conn->session);
-  if (rv != 0) {
-    diec("nghttp2_session_send", rv);
+  ev.data.fd = conn->fd;
+  ev.events=EPOLLIN|EPOLLOUT;
+  epoll_ctl(epfd,EPOLL_CTL_ADD,conn->fd,&ev);
+  while (nghttp2_session_want_read(conn->session) ||
+         nghttp2_session_want_write(conn->session)) {
+	int nfds=epoll_wait(epfd,events,20,-1);
+	int i;
+	for(i=0;i<nfds;++i) {
+	    int rv;
+	    if(events[i].events & EPOLLIN) {
+		  rv = nghttp2_session_recv(conn->session);
+		  if (rv != 0) {
+		    diec("nghttp2_session_recv", rv);
+		  }
+		  ev.data.fd=events[i].data.fd;
+		  ev.events = EPOLLOUT;
+		  epoll_ctl(epfd,EPOLL_CTL_MOD,events[i].data.fd,&ev);
+
+	    } else if(events[i].events & EPOLLOUT) {
+		  rv = nghttp2_session_send(conn->session);
+		  if (rv != 0) {
+		    diec("nghttp2_session_send", rv);
+		  }
+		  ev.data.fd=events[i].data.fd;
+		  ev.events = EPOLLIN;
+		  epoll_ctl(epfd,EPOLL_CTL_MOD,events[i].data.fd,&ev);
+	    } else {
+		if ((events[i].events & POLLHUP) || (events[i].events & POLLERR)) {
+		    epoll_ctl(epfd,EPOLL_CTL_DEL,events[i].data.fd,NULL);
+		} else {
+		    printf("%s\n","epoll other");
+		}
+	    }
+	}
   }
 }
 
@@ -652,27 +664,19 @@ blocking_post(struct loop_t *loop, struct connection_t *conn, const struct reque
 
     printf("[INFO] Stream ID = %d\n", stream_id);
 
-    struct pollfd pollfds[1];
-    pollfds[0].fd = conn->fd;
-    ctl_poll(pollfds, conn);
+    loop->epfd = epoll_create1(0);
 
-    /* Event loop */
-    while (nghttp2_session_want_read(conn->session) ||
-           nghttp2_session_want_write(conn->session)) {
-      int nfds = poll(pollfds, 1, -1);
-      if (nfds == -1) {
-        dief("poll", strerror(errno));
-      }
-      if (pollfds[0].revents & (POLLIN | POLLOUT)) {
-        exec_io(conn);
-      }
-      if ((pollfds[0].revents & POLLHUP) || (pollfds[0].revents & POLLERR)) {
-        die("Connection error");
-      }
-      ctl_poll(pollfds, conn);
+    if (loop->epfd < 0) {
+	printf("epoll_create fail : %d\n", loop->epfd);
+	return false;
     }
 
+    /* maybe running in a thread */
+    event_loop(loop,conn);
 
+    close(loop->epfd);
+    loop->epfd = -1;
+    printf("over.\n");
     return true;
 }
 
