@@ -1,3 +1,5 @@
+# I use lastest nghttp2 dev-version for testing
+# , you may change this location
 INC=../nghttp2/lib/includes
 LIB=../nghttp2/lib/.libs
 

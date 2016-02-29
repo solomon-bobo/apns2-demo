@@ -94,6 +94,16 @@ file_exsit(const char *f)
 }
 
 static bool
+option_is_test(int argc, const char *arg1)
+{
+    if (argc == 2 && 0 == strcmp(arg1, "test")) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+static bool
 option_is_regular(int argc, const char *token, const char *cert, const char *msg)
 {
     if (argc == 4 && file_exsit(cert) && (msg!=NULL)) {
@@ -652,8 +662,10 @@ connection_cleanup(struct connection_t *conn)
 void
 usage()
 {
-    printf("usage: ./apns2demo token cert message \n");
+    printf("usage: apns2demo token cert message \n");
 }
+
+static void test();
 
 int
 main(int argc, const char *argv[])
@@ -669,6 +681,9 @@ main(int argc, const char *argv[])
 		       "73f98e1833fa744403fb4447e0f3a054d43f433b80e48c5bcaa62b501fd0f956",
 		       "1fa5281c6c1d4cf5bb0bbbe0_dis_certkey.pem");
         msg="{\"aps\":{\"alert\":\"nghttp2 test.\",\"sound\":\"default\"}}";
+    } else if (option_is_test(argc,argv[1])) {
+        test();
+        exit(0);
     } else if (option_is_regular(argc, argv[1], argv[2], argv[3])) {
         /* production */
         uri = make_uri("api.push.apple.com", 2197, "/3/device/", argv[1], argv[2]);
@@ -692,6 +707,19 @@ main(int argc, const char *argv[])
     blocking_post(&loop, &conn, &req);
 
     connection_cleanup(&conn);
-    
+
     return 0;
+}
+
+static void
+test()
+{
+  // bad path
+
+  // invalid token
+
+  // feedback
+
+  //
+
 }
