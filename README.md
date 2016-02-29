@@ -21,7 +21,9 @@
 ```
 [19:37:34] liym:apns2-demo git:(master*) $ make
 gcc -o apns2-demo apns2-demo.c -Wall -I../nghttp2/lib/includes -L../nghttp2/lib/.libs -lnghttp2 -lssl -lcrypto
+
 [19:40:33] liym:apns2-demo git:(master*) $ ./apns2-demo 
+
 nghttp2 version: 1.9.0-DEV
 tls/ssl version: TLSv1.2
 ns looking up ...
