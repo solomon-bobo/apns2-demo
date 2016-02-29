@@ -11,7 +11,6 @@
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 
-#include <poll.h>
 #include <sys/epoll.h>
 
 #include <openssl/ssl.h>
