@@ -3,7 +3,7 @@
 
 * using APNs http2 new provider api:
 
-    [see more document](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html)
+    [see document](https://developer.apple.com/library/ios/documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/Chapters/APNsProviderAPI.html)
 
 
 
@@ -12,7 +12,7 @@
  nghttp2 (https://github.com/tatsuhiro-t/nghttp2)
  
 
-* build:
+* build / usage:
 ```
     make
     ./apns2-demo token certfile.pem msg
