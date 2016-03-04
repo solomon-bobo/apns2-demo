@@ -714,7 +714,9 @@ main(int argc, const char *argv[])
         /* default: my test device info */
         uri = make_uri("api.push.apple.com", 2197, "/3/device/",
 		       "73f98e1833fa744403fb4447e0f3a054d43f433b80e48c5bcaa62b501fd0f956",
-		       "1fa5281c6c1d4cf5bb0bbbe0_dis_certkey.pem");
+
+		       "1fa5281c6c1d4cf5bb0bbbe0_dis_certkey.pem"); // cacert + privkey
+
         msg="{\"aps\":{\"alert\":\"nghttp2 test.\",\"sound\":\"default\"}}";
     } else if (option_is_test(argc,argv[1])) {
         test();

@@ -15,7 +15,7 @@
 * build / usage:
 ```
     make
-    ./apns2-demo token certfile.pem msg
+    ./apns2-demo token cacert-privkey-in-one.pem msg
 ```    
     
 * output logs:
