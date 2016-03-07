@@ -288,8 +288,35 @@ ssl_handshake(SSL *ssl, int fd)
         return false;
     }
     ERR_clear_error();
-    rv = SSL_connect(ssl);
+    //rv = SSL_connect(ssl);
+    SSL_set_connect_state(ssl);
+    rv = SSL_do_handshake(ssl);
+
+    if(rv==1) {
+            printf("Connected with encryption: %s\n", SSL_get_cipher(ssl));
+    }
     if (rv <= 0) {
+	printf("rv = %d\n",rv);
+	unsigned long ssl_err = SSL_get_error(ssl,rv);
+	int geterror = ERR_peek_error();
+	int reason = ERR_GET_REASON(geterror);
+	printf("rv %d, ssl_error %lu, get_err %d, reason %d \n",rv, ssl_err, geterror ,reason);
+	printf("errmsg: %s\n", ERR_error_string(ERR_get_error(), NULL));
+	        printf("errmsg msg: %s\n", ERR_reason_error_string(ERR_peek_error()));
+	        printf("Error: %s\n", ERR_reason_error_string(ERR_get_error()));
+	    switch(reason)
+	    {
+	        case SSL_R_SSLV3_ALERT_CERTIFICATE_EXPIRED: /*,define in <openssl/ssl.h> "sslv3 alert certificate expired"},*/
+	          reason = X509_V_ERR_CERT_HAS_EXPIRED;
+	            printf("1\n");
+	            break;
+	        case SSL_R_SSLV3_ALERT_CERTIFICATE_REVOKED: /*,"sslv3 alert certificate revoked"},*/
+	          reason = X509_V_ERR_CERT_REVOKED;
+	            printf("1\n");
+
+	            break;
+	    }
+
         fprintf(stderr, "%s\n", ERR_error_string(ERR_get_error(), NULL));
         return false;
     }
@@ -314,7 +341,6 @@ ssl_connect(const struct uri_t *uri, struct connection_t *conn)
         return false;
     }
     
-    printf("tls/ssl connect ok: protocol= \n");
     return true;
 }
 
