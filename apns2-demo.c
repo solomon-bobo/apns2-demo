@@ -592,6 +592,7 @@ submit_request(struct connection_t *conn, const struct request_t* req)
     const nghttp2_nv nva[] = {
 	      MAKE_NV(":method", "POST"),
 	      MAKE_NV_CS(":path", req->uri.path),
+	      MAKE_NV("apns-topic", "jpush.wangwei.test"),
 	      MAKE_NV("apns-id", "e77a3d12-bc9f-f410-a127-43f212597a9c")
     };
 
