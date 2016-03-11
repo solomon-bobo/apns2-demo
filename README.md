@@ -1,6 +1,7 @@
 # apns2-demo
 
-* if your looking for a tool, see
+* if you are looking for a tool, see:
+
 https://github.com/wardenlym/apns2-test
 
 
