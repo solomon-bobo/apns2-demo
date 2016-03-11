@@ -1,5 +1,8 @@
 # apns2-demo
 
+* if your looking for a tool, see
+https://github.com/wardenlym/apns2-test
+
 
 * using APNs http2 new provider api:
 
